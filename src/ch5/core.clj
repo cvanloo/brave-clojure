@@ -89,6 +89,17 @@
 (my-assoc-in {} [:a :b :c] 5) ; => {:a {:b {:c 5}}}
 (my-assoc-in {:v 7} [:a :b :c] 5) ; => {:v 7, :a {:b {:c 5}}}
 
+(assoc-in {:a {:b 5, :c 8}} [:a :b] 7) ; => {:a {:b 7, :c 8}}
+(my-assoc-in {:a {:b 5, :c 8}} [:a :b] 7) ; => {:a {:b 7}} <-- Wrong!!!
+
+(defn my-assoc-in
+  [m [k & ks] v]
+  (if (empty? ks)
+    (assoc m k v)
+    (assoc m k (my-assoc-in (get m k) ks v))))
+
+(my-assoc-in {:a {:b 5, :c 8}} [:a :b] 7) ; => {:a {:b 7, :c 8}}
+
 (assoc {} :a (assoc {} :b (assoc {} :c 5)))
 
 ;; -----------------------------------------------------------------------------
