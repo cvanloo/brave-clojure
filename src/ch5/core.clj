@@ -191,3 +191,88 @@
 
 (macroexpand '(infix (1 * 2 + 3))) ; => (+ 3 (* 2 1))
 (infix (1 * 2 + 3)) ; => 5
+
+;; -----------------------------------------------------------------------------
+
+(def order-details-invalid {:name ""
+                            :email "mitchard.blimmonsgmail.com"})
+
+(def order-details-valid {:name "Mitchard Blimmons"
+                          :email "mitchard.blimmons@gmail.com"})
+
+(def order-details-validations
+  {:name ["Please enter a name" not-empty]
+   :email ["Please enter an email address" not-empty
+           "Your email address doesn't look like an email address" #(or (empty? %) (re-seq #"@" %))]})
+
+(defn error-messages-for
+  [to-validate message-validator-pairs]
+  (map first (filter #(not ((second %) to-validate))
+                     (partition 2 message-validator-pairs))))
+
+(defn validate
+  [to-validate validations]
+  (reduce (fn [errors validation]
+            (let [[fieldname validation-check-groups] validation
+                  value (get to-validate fieldname)
+                  error-messages (error-messages-for value validation-check-groups)]
+              (if (empty? error-messages)
+                errors
+                (assoc errors fieldname error-messages))))
+          {}
+          validations))
+
+; (validate order-details-invalid order-details-validations)
+
+(defmacro when-valid
+  [to-validate validations & body]
+  `(when (empty? (validate ~to-validate ~validations))
+     ~@body))
+
+(when-valid order-details-valid order-details-validations
+            (println "It's a success!")
+            :success)
+
+;; -----------------------------------------------------------------------------
+
+(defmacro my-or
+  ([] nil)
+  ([x] x)
+  ([x & next]
+   `(let [or# ~x]
+      (if or# or# (my-or ~@next)))))
+
+(macroexpand '(my-or false true false))
+(my-or false false true)
+
+;; -----------------------------------------------------------------------------
+
+(def character
+  {:name "Smooches McCutes"
+   :attributes {:intelligence 10
+                :strength 4
+                :dexterity 5}})
+
+;(def c-int (comp :intelligence :attributes))
+
+(defmacro defattrs
+  [& attrs]
+  `(do
+     ~@(map #(let [name (first %)
+                   attr (second %)]
+               `(def ~name (comp ~attr :attributes)))
+            (partition 2 attrs))))
+
+(macroexpand '(defattrs
+                c-int :intelligence
+                c-str :strength
+                c-dex :dexterity))
+
+(defattrs
+  c-int :intelligence
+  c-str :strength
+  c-dex :dexterity)
+
+(c-int character)
+(c-str character)
+(c-dex character)
