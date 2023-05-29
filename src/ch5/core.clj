@@ -117,60 +117,62 @@
 ; 1 + 2 * 3 = 7
 ; (+ 1 (* 2 3) = 7
 
-(def precedences
-  {nil 0
-   :+ 1
-   :- 1
-   :/ 2
-   :* 2})
-
-(def get-precedence (partial get precedences))
-
-(defn lower-precedence?
-  [op1 op2]
-  (let [op1 (if (symbol? op1) (keyword op1) op1)
-        op2 (if (symbol? op2) (keyword op2) op2)]
-    (< (get-precedence op1) (get-precedence op2))))
-
-(defn push-op
-  [stack op]
-  (update-in stack [:ops] #(conj % op)))
-
-(defn top-op
-  [stack]
-  (first (:ops stack)))
-
-(defn push-num
-  [stack num]
-  (update-in stack [:nums] #(conj % num)))
-
-(defn create-pair
-  [{nums :nums ops :ops}]
-  (let [op (first ops)
-        [num1 num2] (take 2 nums)
-        pair (list op num1 num2)]
-    {:nums (conj (drop 2 nums) pair) :ops (rest ops)}))
-
-;(eval (first (:nums (create-pair {:nums '(3 2 1) :ops (list * +)}))))
-
-(defn pre-infix
-  [infixed]
-  (reduce (fn [a e]
-            (if (number? e)
-              (push-num a e)
-              (push-op (if (lower-precedence? e (top-op a))
-                         (create-pair a)
-                         a)
-                       e)))
-          {:nums '() :ops '()}
-          infixed))
-
-(defmacro infix
-  [infixed]
-  (loop [a (pre-infix infixed)]
-    (if (empty? (:ops a))
-      (first (:nums a))
-      (recur (create-pair a)))))
+;(def precedences
+;  {nil 0
+;   :+ 1
+;   :- 1
+;   :/ 2
+;   :* 2})
+;
+;(def get-precedence (partial get precedences))
+;
+;(defn lower-precedence?
+;  [op1 op2]
+;  (let [op1 (if (symbol? op1) (keyword op1) op1)
+;        op2 (if (symbol? op2) (keyword op2) op2)]
+;    (< (get-precedence op1) (get-precedence op2))))
+;
+;(defn push-op
+;  [stack op]
+;  (update-in stack [:ops] #(conj % op)))
+;
+;(defn top-op
+;  [stack]
+;  (first (:ops stack)))
+;
+;(defn push-num
+;  [stack num]
+;  (update-in stack [:nums] #(conj % num)))
+;
+;(defn create-pair
+;  [{nums :nums ops :ops}]
+;  (let [op (first ops)
+;        [num1 num2] (take 2 nums)
+;        pair (list op num1 num2)]
+;    {:nums (conj (drop 2 nums) pair) :ops (rest ops)}))
+;
+;;(eval (first (:nums (create-pair {:nums '(3 2 1) :ops (list * +)}))))
+;
+;(defn pre-infix
+;  [infixed]
+;  (reduce (fn [a e]
+;            (if (number? e)
+;              (push-num a e)
+;              (push-op (if (lower-precedence? e (top-op a))
+;                         (create-pair a)
+;                         a)
+;                       e)))
+;          {:nums '() :ops '()}
+;          infixed))
+;
+;(defmacro infix
+;  [infixed]
+;  (loop [a (pre-infix infixed)]
+;    (if (empty? (:ops a))
+;      (first (:nums a))
+;      (recur (create-pair a)))))
+;
+;(macroexpand '(infix (1 + 2 * 3)))
 
 ; iterate through input list
 ;   el is a number
@@ -276,3 +278,72 @@
 (c-int character)
 (c-str character)
 (c-dex character)
+
+;; -----------------------------------------------------------------------------
+
+(def precedences
+  {nil 0
+   '+ 1
+   '- 1
+   '/ 2
+   '* 2})
+
+(defn lower-precedence?
+  [left right]
+  (< (precedences left) (precedences right)))
+
+(defn update-stack
+  [key stack val]
+  (update-in stack [key] #(conj % val)))
+
+(def push-num (partial update-stack :nums))
+(def push-op (partial update-stack :ops))
+
+(defn create-pair
+  [{[n1 n2 & nums] :nums [op & ops] :ops}]
+  (let [pair `(~op ~n2 ~n1)]
+    {:nums (conj nums pair) :ops ops}))
+
+(defmacro infix
+  [& infixed]
+  (loop [[el & rst] infixed
+         {nums :nums ops :ops :as stack} {:nums '() :ops '()}]
+    (if (and (nil? el) (empty? ops))
+      (first nums)
+      (recur rst (if (nil? el)
+                   (create-pair stack)
+                   (if (number? el)
+                     (push-num stack el)
+                     (push-op (if (lower-precedence? el (first ops))
+                                (create-pair stack)
+                                stack)
+                              el)))))))
+
+(defmacro infix
+  [& infixed]
+  (loop [[el & rst] infixed
+         {nums :nums ops :ops :as stack} {:nums '() :ops '()}]
+    (if (and (nil? el) (empty? ops))
+      (first nums)
+      (recur rst
+             (cond
+               (number? el) (push-num stack el)
+               (symbol? el) (push-op (if (lower-precedence? el (first ops))
+                                       (create-pair stack)
+                                       stack)
+                                     el)
+               :else (create-pair stack))))))
+
+;(= (symbol '+) '+)
+;(precedences +)
+(macroexpand '(infix 1 + 2 * 3))
+(infix 1 + 2 * 3)
+
+(macroexpand '(infix 1 * 2 - 3))
+(infix 1 * 2 - 3)
+
+(macroexpand '(infix -1 + 4))
+(infix -1 + 4)
+
+(macroexpand '(infix 4 + -1))
+(infix 4 + -1)
