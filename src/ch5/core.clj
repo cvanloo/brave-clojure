@@ -347,3 +347,133 @@
 
 (macroexpand '(infix 4 + -1))
 (infix 4 + -1)
+
+;; -----------------------------------------------------------------------------
+
+(defmacro wait
+  [timeout & body]
+  `(do (Thread/sleep ~timeout) ~@body))
+
+(let [saying3 (promise)]
+  (future (deliver saying3 (wait 100 "Cheerio!")))
+  @(let [saying2 (promise)]
+     (future (deliver saying2 (wait 400 "Pip pip!")))
+     @(let [saying1 (promise)]
+        (future (deliver saying1 (wait 200 "'Ello, gov'na!")))
+        (println @saying1)
+        saying1)
+     (println @saying2)
+     saying2)
+  (println @saying3)
+  saying3)
+
+(defmacro enqueue
+  ([q concurrent-promise-name concurrent serialized]
+   `(let [~concurrent-promise-name (promise)]
+      (future (deliver ~concurrent-promise-name ~concurrent))
+      (deref ~q)
+      ~serialized
+      ~concurrent-promise-name))
+  ([concurrent-promise-name concurrent serialized]
+   `(enqueue (future) ~concurrent-promise-name ~concurrent ~serialized)))
+
+(time @(-> (enqueue saying (wait 200 "'Ello, gov'na!") (println @saying))
+           (enqueue saying (wait 400 "Pip pip!") (println @saying))
+           (enqueue saying (wait 100 "Cheerio!") (println @saying))))
+
+(defn some-network-call
+  [n]
+  (Thread/sleep n)
+  n)
+
+(def ops [1000 4000 3000 2000])
+
+(time (second (map deref (for [op ops]
+                           (future (some-network-call op))))))
+
+;; -----------------------------------------------------------------------------
+
+(def fred (atom {:cuddle-hunger-level 0
+                 :percent-deteriorated 0}))
+@fred
+(swap! fred #(merge-with + % {:cuddle-hunger-level 1}))
+@fred
+(swap! fred #(merge-with + % {:cuddle-hunger-level 1
+                              :percent-deteriorated 1}))
+
+(defn increase-cuddle-hunger-level
+  [zombie-state increase-by]
+  (merge-with + zombie-state {:cuddle-hunger-level increase-by}))
+
+(increase-cuddle-hunger-level @fred 10) ; => {:cuddle-hunger-level 12, :percent-deteriorated 1}
+(swap! fred increase-cuddle-hunger-level 10)
+@fred
+(swap! fred update-in [:cuddle-hunger-level] + 10)
+
+(reset! fred {:cuddle-hunger-level 0
+              :percent-deteriorated 0})
+
+(defn shuffle-speed
+  [zombie]
+  (* (:cuddle-hunger-level zombie)
+     (- 100 (:percent-deteriorated zombie))))
+
+(shuffle-speed @fred)
+
+(defn shuffle-alert
+  [key watched old-state new-state]
+  (let [sph (shuffle-speed new-state)]
+    (if (> sph 5000)
+      (do
+        (println "Run, you fool!")
+        (println "The zombie's SPH is now" sph)
+        (println "This message brought to your courtesy of" key))
+      (do
+        (println "All's well with" key)
+        (println "Cuddle hunger:" (:cuddle-hunger-level new-state))
+        (println "Percent deteriorated:" (:percent-deteriorated new-state))
+        (println "SPH:" sph)))))
+
+(reset! fred {:cuddle-hunger-level 22
+              :percent-deteriorated 2})
+(add-watch fred :fred-shuffle-alert shuffle-alert)
+(swap! fred update-in [:percent-deteriorated] + 1)
+(swap! fred update-in [:cuddle-hunger-level] + 30)
+
+(defn percent-deteriorated-validator
+  [{:keys [percent-deteriorated]}]
+  (or (and (>= percent-deteriorated 0)
+           (<= percent-deteriorated 100))
+      (throw (IllegalStateException. "That's not mathy!"))))
+
+(def bobby
+  (atom
+   {:cuddle-hunger-level 0 :percent-deteriorated 0}
+   :validator percent-deteriorated-validator))
+
+(swap! bobby update-in [:percent-deteriorated] + 200) ; => IllegalStateException
+
+(take 5 (repeatedly (partial rand-int 10)))
+(def letters (mapv (comp str char (partial + 65)) (range 26)))
+(defn random-string
+  [length]
+  (apply str (take length (repeatedly #(rand-nth letters)))))
+(defn random-string-list
+  [list-length string-length]
+  (doall (take list-length (repeatedly (partial random-string string-length)))))
+
+(def orc-names (random-string-list 3000 7000))
+(time (dorun (map clojure.string/lower-case orc-names))) ; => 34ms
+(time (dorun (pmap clojure.string/lower-case orc-names))) ; => 18ms
+
+(def orc-names (random-string-list 20000 300))
+(time (dorun (map clojure.string/lower-case orc-names))) ; => 9ms
+(time (dorun (pmap clojure.string/lower-case orc-names))) ; => 43ms
+;; Parallelization comes with its own overheads!
+
+(time
+ (dorun
+  (apply concat
+         (pmap (fn [name] (doall (map clojure.string/lower-case name)))
+               (partition-all 1000 orc-names)))))
+;; increase grain-size: 6ms
