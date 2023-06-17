@@ -577,50 +577,8 @@
 
 (time (reduce + (map #(sigma %) (range 1 (Math/pow 10 3))))) ; => 9 msecs
 (time (reduce + (map #(sigma %) (range 1 (Math/pow 10 4))))) ; => 482.4 msecs
-(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 5))))) ; => 43962 msecs
+(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 5))))) ; => 8224494757 in 43962 msecs
 (time (reduce + (map #(m-sigma % % 0) (range 1 (Math/pow 10 3))))) ; => 449.7 msecs
 ; so this memo thingy actually makes things even slower ... ???
 
 ;; ----------------------------------------------------------------------------
-
-; The fastest way I found using memoization in Go:
-; package main
-; 
-; import (
-;     "fmt"
-;     "math"
-;     "time"
-; )
-; 
-; var mem = map[int]int{}
-; 
-; func sigma(n int) int {
-;     if r, ok := mem[n]; ok {
-;         return r
-;     }
-;     a := n
-;     for i := 1; i < n; i++ {
-;         if n % i == 0 {
-;             a += i
-;         }
-;     }
-;     mem[n] = a
-;     return a
-; }
-; 
-; func main() {
-;     //n := int(math.Pow10(5))
-;     //a := sigma(n) // a = 246078
-;     //fmt.Println(a)
-; 
-;     start := time.Now()
-;     n := int(math.Pow10(5))
-;     a := 0
-;     for i := 1; i < n; i++ {
-;         a += sigma(n)
-;     }
-;     end := time.Now()
-;     took := end.Sub(start)
-;     //fmt.Printf("res: %d, took: %d", a, took) // res: 24607553922, took: 855327
-;     fmt.Printf("res: %d, took: %s", a, took) // res: 24607553922, took: 859.926µs
-; }
