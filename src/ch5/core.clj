@@ -582,3 +582,52 @@
 ; so this memo thingy actually makes things even slower ... ???
 
 ;; ----------------------------------------------------------------------------
+
+; multithreaded solution in Go
+; // multithreading: res: 8224494757, took: 597.418562ms
+; func sigma3(n int, answer chan<- int) {
+;     a := n
+;     top := n/2 + 1
+;     for i := 1; i < top; i++ {
+;         if n%i == 0 {
+;             a += i
+;         }
+;     }
+;     answer <- a
+; }
+; 
+; func main() {
+;     start := time.Now()
+; 
+;     n := int(math.Pow10(5))
+;     a := 0
+;     ch := make(chan int)
+; 
+;     for i := n - 1; i > 0; i-- {
+;         go sigma3(i, ch)
+;     }
+;     for i := n - 1; i > 0; i-- {
+;         a += <-ch
+;     }
+; 
+;     end := time.Now()
+;     took := end.Sub(start)
+; 
+;     fmt.Printf("res: %d, took: %s", a, took)
+; }
+
+
+(defn sigma
+  ([n] (sigma n (quot n 2) n))
+  ([n c a]
+   (if (zero? c)
+     a
+     (recur n (dec c) (if (zero? (mod n c))
+                        (+ a c)
+                        a)))))
+
+; using parallel map
+(time (reduce + (pmap #(sigma %) (range 1 (Math/pow 10 5))))) ; => 8224494757 in 9594 msecs
+
+;; ----------------------------------------------------------------------------
+
