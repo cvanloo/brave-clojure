@@ -616,6 +616,30 @@
 ;     fmt.Printf("res: %d, took: %s", a, took)
 ; }
 
+; multithreaded solution in Julia
+; function sigma(n)
+;     a = n
+;     top = n / 2
+;     for i in 1:n-1
+;         if n % i == 0
+;             a += i
+;         end
+;     end
+;     a
+; end
+; 
+; function main()
+;     a = zeros(10^5-1)
+;     Threads.@threads for i in 1:10^5-1
+;         a[i] += sigma(i)
+;     end
+;     convert(Int, reduce(+, a))
+; end
+; 
+; # julia -t 16 sigma.jl
+; # 8224494757
+; # 2.186646 seconds (21.39 k allocations: 2.289 MiB, 17.09% compilation time)
+; @time println(main())
 
 (defn sigma
   ([n] (sigma n (quot n 2) n))
