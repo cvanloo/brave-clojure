@@ -477,3 +477,150 @@
          (pmap (fn [name] (doall (map clojure.string/lower-case name)))
                (partition-all 1000 orc-names)))))
 ;; increase grain-size: 6ms
+
+;; ----------------------------------------------------------------------------
+
+(defn divisors
+  [n]
+  (conj (vec (filter #(zero? (mod n %))
+                     (range 1 (inc (quot n 2)))))
+        n))
+
+(def m-divisors (memoize divisors))
+
+(defn sigma
+  [n]
+  (reduce + (map #(reduce + (m-divisors %))
+                 (range 1 (inc n)))))
+
+(time (sigma 12))
+(time (sigma (Math/pow 10 5))) ; => 40209 msecs
+
+;; ----------------------------------------------------------------------------
+
+(defn sigma
+  ([n] (sigma n (quot n 2) n))
+  ([n c a]
+   (if (zero? c)
+     a
+     (recur n (dec c) (if (zero? (mod n c))
+                        (+ a c)
+                        a)))))
+
+(time (sigma (Math/pow 10 5))) ; => 5.89 msecs
+(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 5))))) ; => 43876 msecs
+
+(def m-sigma (memoize sigma))
+
+(time (m-sigma 12))
+(time (m-sigma (Math/pow 10 5))) ; => 15 msec
+
+(time (reduce + (map #(m-sigma %) (range 1 (Math/pow 10 5))))) ; => (first time computing result) 33535 msecs / 44069 msecs
+(time (reduce + (map #(m-sigma %) (range 1 (Math/pow 10 5))))) ; => (reuse last result) 30.99 msecs
+
+;; ----------------------------------------------------------------------------
+
+(defn make-sigma
+  [n]
+  (let [sigma-impl (fn [sigma-m c a]
+                     (let [sigma (fn [c a] (sigma-m sigma-m c a))]
+                       (if (zero? c)
+                         a
+                         (sigma (dec c) (if (zero? (mod n c))
+                                          (+ a c)
+                                          a)))))
+        sigma-m (memoize sigma-impl)]
+    (partial sigma-m sigma-m)))
+
+
+((make-sigma 12) 12 0)
+
+;; ----------------------------------------------------------------------------
+
+(defn make-sigma
+  [n]
+  (let [sigma-impl (fn [sigma-m c a]
+                     (let [sigma (fn [c a] (sigma-m sigma-m c a))]
+                       (if (zero? c)
+                         a
+                         (sigma (dec c) (if (zero? (mod n c))
+                                          (+ a c)
+                                          a)))))
+        sigma-m (memoize sigma-impl)]
+    (partial sigma-m sigma-m (quot n 2) n)))
+
+
+((make-sigma 12))
+
+(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 3))))) ; => 21.78 msecs
+(time (reduce + (map #((make-sigma %)) (range 1 (Math/pow 10 3))))) ; => 140.1 msecs
+
+(time ((make-sigma (Math/pow 10 5)))) ; => Execution error (StackOverflowError)
+
+;; ----------------------------------------------------------------------------
+
+(defn make-sigma
+  []
+  (let [sigma-impl (fn [sigma-m n c a]
+                     (let [sigma (fn [c a] (sigma-m sigma-m n c a))]
+                       (if (zero? c)
+                         a
+                         (sigma (dec c) (if (zero? (mod n c))
+                                          (+ a c)
+                                          a)))))
+        sigma-m (memoize sigma-impl)]
+    (partial sigma-m sigma-m)))
+
+
+(def m-sigma (make-sigma))
+(m-sigma 12 12 0) ; => 28
+
+(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 3))))) ; => 9 msecs
+(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 4))))) ; => 482.4 msecs
+(time (reduce + (map #(sigma %) (range 1 (Math/pow 10 5))))) ; => 43962 msecs
+(time (reduce + (map #(m-sigma % % 0) (range 1 (Math/pow 10 3))))) ; => 449.7 msecs
+; so this memo thingy actually makes things even slower ... ???
+
+;; ----------------------------------------------------------------------------
+
+; The fastest way I found using memoization in Go:
+; package main
+; 
+; import (
+;     "fmt"
+;     "math"
+;     "time"
+; )
+; 
+; var mem = map[int]int{}
+; 
+; func sigma(n int) int {
+;     if r, ok := mem[n]; ok {
+;         return r
+;     }
+;     a := n
+;     for i := 1; i < n; i++ {
+;         if n % i == 0 {
+;             a += i
+;         }
+;     }
+;     mem[n] = a
+;     return a
+; }
+; 
+; func main() {
+;     //n := int(math.Pow10(5))
+;     //a := sigma(n) // a = 246078
+;     //fmt.Println(a)
+; 
+;     start := time.Now()
+;     n := int(math.Pow10(5))
+;     a := 0
+;     for i := 1; i < n; i++ {
+;         a += sigma(n)
+;     }
+;     end := time.Now()
+;     took := end.Sub(start)
+;     //fmt.Printf("res: %d, took: %d", a, took) // res: 24607553922, took: 855327
+;     fmt.Printf("res: %d, took: %s", a, took) // res: 24607553922, took: 859.926µs
+; }
