@@ -532,7 +532,6 @@
         sigma-m (memoize sigma-impl)]
     (partial sigma-m sigma-m)))
 
-
 ((make-sigma 12) 12 0)
 
 ;; ----------------------------------------------------------------------------
@@ -548,7 +547,6 @@
                                           a)))))
         sigma-m (memoize sigma-impl)]
     (partial sigma-m sigma-m (quot n 2) n)))
-
 
 ((make-sigma 12))
 
@@ -570,7 +568,6 @@
                                           a)))))
         sigma-m (memoize sigma-impl)]
     (partial sigma-m sigma-m)))
-
 
 (def m-sigma (make-sigma))
 (m-sigma 12 12 0) ; => 28
@@ -658,5 +655,45 @@
 ; using parallel map
 (time (reduce + (pmap #(sigma %) (range 1 (Math/pow 10 5))))) ; => 8224494757 in 9594 msecs
 
+(time (reduce + (flatten (pmap (fn [s] (map #(sigma %) s)) (partition-all 100 (range 1 (Math/pow 10 5))))))) ; 12382 msecs
+(time (reduce + (flatten (pmap (fn [s] (map #(sigma %) s)) (partition-all 1000 (range 1 (Math/pow 10 5))))))) ; 12453 msecs
+
+
+(time (reduce + (pmap (fn [s] (reduce + (map #(sigma %) s)))
+                      (partition-all 100 (range 1 (Math/pow 10 5)))))) ; 9414 msecs
+(time (reduce + (pmap (fn [s] (reduce + (map #(sigma %) s)))
+                      (partition-all 1000 (range 1 (Math/pow 10 5)))))) ; 9446 msecs
+
+(defn sum-sigma
+  [n]
+  (let [r (atom 0)
+        fs (for [i (range 1 n)]
+             (future (swap! r + (sigma i))))]
+    (doseq [f fs] @f)
+    @r))
+
+(time (sum-sigma (Math/pow 10 5))) ; => 8224494757 in 9731 msecs
+
 ;; ----------------------------------------------------------------------------
 
+(def v (atom 0))
+(reset! v 0)
+(dotimes [_ 5] (swap! v + 1))
+@v
+
+(defn get-quote
+  "Parsing JSON the worst way imaginable..."
+  []
+  (second (re-find #"\"content\":\"([A-Za-z .,-_:]+)\"" (slurp "https://api.quotable.io/quotes/random"))))
+
+(defn quotes
+  [n]
+  (let [word-count (atom {})
+        futures (repeatedly n (fn [] (future (let [q (get-quote)]
+                                               (swap! word-count #(assoc % q (count q)))))))]
+    (doseq [f futures] @f)
+    @word-count))
+
+(quotes 5)
+
+;; ----------------------------------------------------------------------------
