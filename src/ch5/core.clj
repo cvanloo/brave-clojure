@@ -603,10 +603,10 @@
 ;     a := 0
 ;     ch := make(chan int)
 ; 
-;     for i := n - 1; i > 0; i-- {
+;     for i := 1; i < n; i++ {
 ;         go sigma3(i, ch)
 ;     }
-;     for i := n - 1; i > 0; i-- {
+;     for i := 1; i < n; i++ {
 ;         a += <-ch
 ;     }
 ; 
@@ -638,7 +638,12 @@
 ; 
 ; # julia -t 16 sigma.jl
 ; # 8224494757
-; # 2.186646 seconds (21.39 k allocations: 2.289 MiB, 17.09% compilation time)
+; # 16.842468 seconds (20.94 k allocations: 2.262 MiB, 0.21% compilation time)
+; # --------------------------------------------------------------------------
+; # julia -t (nproc) sigma.jl
+; #   ..where nproc = 32
+; # 8224494757
+; # 1.451240 seconds (21.87 k allocations: 2.319 MiB, 56.54% compilation time)
 ; @time println(main())
 
 (defn sigma
