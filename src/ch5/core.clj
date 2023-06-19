@@ -635,7 +635,7 @@
 ; 
 ; # julia -t 16 sigma.jl
 ; # 8224494757
-; # 16.842468 seconds (20.94 k allocations: 2.262 MiB, 0.21% compilation time)
+; # 1.365092 seconds (21.87 k allocations: 2.318 MiB, 87.69% compilation time)
 ; # --------------------------------------------------------------------------
 ; # julia -t (nproc) sigma.jl
 ; #   ..where nproc = 32
@@ -698,3 +698,36 @@
 
 ;; ----------------------------------------------------------------------------
 
+; The Go coroutine/channel solution in Clojure:
+; Note that we have to create a (highly) buffered channel or we'll get an
+; exception!
+; 9522 msecs
+(time (let [ch (chan (Math/pow 10 5))
+            n (Math/pow 10 5)]
+       (doseq [i (range 1 n)] (go (>! ch (sigma i))))
+       (reduce (fn [a _] (+ a (<!! ch))) 0 (range 1 n))))
+
+;; ----------------------------------------------------------------------------
+
+(.toUpperCase "Hello, World!")
+(macroexpand '(.toUpperCase "Hello, World!")) ; => (. "Hello, World!" toUpperCase)
+; . dot operator is a special form!
+
+java.lang.Math/PI
+
+(new String)
+(String.)
+(String. "To Davey Jones's Locker with ye hardies")
+
+(let [stack (java.util.Stack.)]
+  (.push stack "Latest episode of Game of Thrones, ho!")
+  (first stack))
+
+(doto (java.util.Stack.)
+  (.push "Latest episode of Game of Thrones, ho!")
+  (.push "Whoops, I meant 'Land, ho!'"))
+
+(System/getenv)
+
+; date literal
+#inst "2016-09-19"

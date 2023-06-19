@@ -107,3 +107,16 @@
   (let [[value channel] (alts!! [c1 [c2 "puts!"]])]
     (println value)
     (= channel c2)))
+
+; -----------------------------------------------------------------------------
+
+(defn sigma
+  ([ch n] (sigma ch n (quot n 2) n))
+  ([ch n c a]
+   (if (zero? c)
+     (>!! ch a)
+     (recur ch n (dec c) (if (zero? (mod n c))
+                           (+ a c)
+                           a)))))
+
+(time (reduce + (pmap #(sigma %) (range 1 (Math/pow 10 5))))) ; => 8224494757 in 9594 msecs
